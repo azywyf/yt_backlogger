@@ -42,6 +42,15 @@ const app = new Elysia()
     })
   }
 )
+.delete("/videos/:id", ({ params }) => {
+  const { id } = params;
+  db.query("DELETE FROM videos WHERE id = ?").run(id);
+  return {success: true, message: "Video deleted."};
+})
+
+
+
+
 
 .listen(3000);
 
