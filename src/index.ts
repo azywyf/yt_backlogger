@@ -22,6 +22,7 @@ const app = new Elysia()
       url: t.String()
     })
   }
+)
 .patch(
   "/videos/:id",
   ({ params, body }) => {
@@ -41,7 +42,7 @@ const app = new Elysia()
     })
   }
 )
-)
+
 .listen(3000);
 
 console.log(
