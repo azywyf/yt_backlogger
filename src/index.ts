@@ -1,16 +1,11 @@
 import { Elysia } from "elysia";
+import db from "./db";
 
-const app = new Elysia().get("/videos", () => {
+const app = new Elysia()
+.get("/videos", () => {
   "Welcome User.";
-  return [
-    {
-      id: 1,
-      title: "Example Video",
-      url: "https://youtube.com/watch?v=example",
-      watched: false,
-      notes: ""
-    }
-  ];
+  const videos = db.query("SELECT * FROM videos").all();
+  return videos;
 })
 .listen(3000);
 
