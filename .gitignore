@@ -48,3 +48,4 @@ package-lock.json
 
 # claude code local (personal) settings
 .claude/settings.local.json
+.CLAUDE.md
