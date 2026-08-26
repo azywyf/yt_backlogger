@@ -45,3 +45,6 @@ package-lock.json
 #local database
 *.squlite
 *.sqlite-journal
+
+# claude code local (personal) settings
+.claude/settings.local.json
