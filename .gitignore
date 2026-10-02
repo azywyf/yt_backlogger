@@ -43,7 +43,7 @@ package-lock.json
 **/*.bun
 
 #local database
-*.squlite
+*.sqlite
 *.sqlite-journal
 
 # claude code local (personal) settings

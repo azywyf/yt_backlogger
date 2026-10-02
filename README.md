@@ -1,35 +1,49 @@
 # YT Backlogger
 
-A small REST API for tracking a personal backlog of YouTube videos — add links you want to watch, mark them watched, remove them. Built with [Elysia](https://elysiajs.com/) on [Bun](https://bun.sh/), backed by a local SQLite database via `bun:sqlite`.
+A small app for tracking a personal backlog of YouTube videos — paste a link, mark videos watched, add notes, remove them. A REST API built with [Elysia](https://elysiajs.com/) on [Bun](https://bun.sh/) (SQLite via `bun:sqlite`), plus a React frontend in `frontend/`.
 
 ## Tech stack
 
 - **Runtime:** [Bun](https://bun.sh/)
-- **Framework:** [Elysia](https://elysiajs.com/)
+- **API:** [Elysia](https://elysiajs.com/), TypeScript
 - **Database:** SQLite (`bun:sqlite`), stored in `backlog.sqlite`
-- **Language:** TypeScript
+- **Frontend:** React 19, TypeScript, Tailwind CSS v4, [Vite](https://vite.dev/)
 
 ## Requirements
 
-- [Bun](https://bun.sh/) installed (this project uses Bun's built-in SQLite driver, so Node.js alone won't run it)
+- [Bun](https://bun.sh/) installed (this project uses Bun's built-in SQLite driver, so Node.js alone won't run the API)
 
 ## Setup
 
 ```bash
 bun install
+cd frontend && bun install
 ```
 
 ## Running
+
+Start the API (from the project root):
 
 ```bash
 bun run dev
 ```
 
-This starts the server with `--watch` (auto-restarts on file changes). By default it listens on port `3000`:
+It listens on port `3000` and restarts on file changes. Then start the UI in a second terminal:
 
+```bash
+cd frontend
+bun run dev
 ```
-🦊 Elysia is running at localhost:3000
+
+Open `http://localhost:5173`. The Vite dev server proxies `/videos` requests to the API on port 3000, so no CORS setup is needed.
+
+## Tests
+
+```bash
+bun test
 ```
+
+Tests call the app directly and use an in-memory database, so they never touch `backlog.sqlite`.
 
 ## Database
 
@@ -39,11 +53,11 @@ On startup, `src/db.ts` opens (and creates, if missing) `backlog.sqlite` in the 
 |-----------|---------|---------------------------------|
 | `id`      | INTEGER | Primary key, autoincrement     |
 | `title`   | TEXT    | Required                       |
-| `url`     | TEXT    | Required                       |
+| `url`     | TEXT    | Required, unique               |
 | `watched` | INTEGER | `0` or `1`, defaults to `0`    |
 | `notes`   | TEXT    | Defaults to `''`               |
 
-No migrations are needed — the table is created automatically the first time the server runs.
+No migrations are needed — the table and index are created automatically the first time the server runs.
 
 ## API Reference
 
@@ -51,7 +65,7 @@ Base URL: `http://localhost:3000`
 
 ### `GET /videos`
 
-Returns every video in the backlog.
+Returns videos in the backlog. Optional query parameter `watched=true|false` filters by watched status; any other value returns `422`.
 
 **Response**
 ```json
@@ -62,30 +76,41 @@ Returns every video in the backlog.
 
 ### `POST /videos`
 
-Adds a new video to the backlog.
+Adds a video. `url` must be a YouTube link (`youtube.com`, `www.youtube.com`, `m.youtube.com` or `youtu.be`). `title` is optional — if omitted, it is fetched from YouTube's oEmbed endpoint.
 
 **Body**
 ```json
-{ "title": "Some Talk", "url": "https://youtu.be/..." }
+{ "url": "https://www.youtube.com/watch?v=...", "title": "Optional title" }
 ```
 
 **Response**
 ```json
-{ "success": true, "message": "Video added successfully." }
+{ "success": true, "message": "Video added successfully.", "title": "Some Talk" }
 ```
+
+**Errors:** `400` not a YouTube URL · `409` already in the backlog · `502` title couldn't be fetched (send a `title` yourself)
 
 ### `PATCH /videos/:id`
 
-Updates a video's watched status.
+Updates `watched` and/or `notes`. Both are optional; fields you omit are left unchanged.
 
 **Body**
 ```json
-{ "watched": true }
+{ "watched": true, "notes": "watch at 1.5x" }
 ```
 
 **Response**
 ```json
 { "success": true, "message": "Video updated." }
+```
+
+### `POST /videos/:id/toggle`
+
+Flips the video's watched status.
+
+**Response**
+```json
+{ "success": true, "message": "Video toggled." }
 ```
 
 ### `DELETE /videos/:id`
@@ -97,11 +122,17 @@ Removes a video from the backlog.
 { "success": true, "message": "Video deleted." }
 ```
 
+`PATCH`, `toggle` and `DELETE` return `404` with `{ "success": false, "message": "Video not found." }` if the id doesn't exist.
+
 ## Project structure
 
 ```
 src/
-  index.ts   # Elysia app + route definitions
-  db.ts      # SQLite connection + schema setup
-backlog.sqlite  # SQLite database file (created on first run)
+  index.ts        # Elysia app + route definitions
+  index.test.ts   # route tests (bun test)
+  db.ts           # SQLite connection + schema setup
+frontend/         # Vite + React + Tailwind UI
+  src/api.ts      # fetch wrappers for the API
+  src/App.tsx     # the UI
+backlog.sqlite    # SQLite database file (created on first run)
 ```
