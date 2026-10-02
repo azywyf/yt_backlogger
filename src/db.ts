@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-const db = new Database("backlog.sqlite");
+const db = new Database(process.env.NODE_ENV === "test" ? ":memory:" : "backlog.sqlite");
 
 db.run(`
   CREATE TABLE IF NOT EXISTS videos (

@@ -12,19 +12,50 @@ function isYouTubeUrl(value: string): boolean {
   }
 }
 
+async function fetchTitle(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { title?: string };
+    return data.title ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const app = new Elysia()
-.get("/videos", () => {
-  "Welcome User.";
-  const videos = db.query("SELECT * FROM videos").all();
-  return videos;
-})
+.get(
+  "/videos",
+  ({ query }) => {
+    "Welcome User.";
+    if (query.watched === undefined) {
+      return db.query("SELECT * FROM videos").all();
+    }
+    return db
+      .query("SELECT * FROM videos WHERE watched = ?")
+      .all(query.watched === "true" ? 1 : 0);
+  },
+  {
+    query: t.Object({
+      watched: t.Optional(t.Union([t.Literal("true"), t.Literal("false")]))
+    })
+  }
+)
 .post(
   "/videos",
-  ({ body, set }) => {
-    const { title, url } = body;
+  async ({ body, set }) => {
+    const { url } = body;
     if (!isYouTubeUrl(url)) {
       set.status = 400;
       return {success: false, message: "URL must be a YouTube link."};
+    }
+    const title = body.title ?? (await fetchTitle(url));
+    if (!title) {
+      set.status = 502;
+      return {success: false, message: "Couldn't fetch the title. Please provide one."};
     }
     try {
       db.query("INSERT INTO videos (title, url) VALUES (?, ?)").run(title, url);
@@ -35,11 +66,11 @@ const app = new Elysia()
       }
       throw e;
     }
-    return {success: true, message: "Video added successfully."};
+    return {success: true, message: "Video added successfully.", title};
   },
   {
     body: t.Object({
-      title: t.String(),
+      title: t.Optional(t.String()),
       url: t.String()
     })
   }
@@ -90,14 +121,13 @@ const app = new Elysia()
     return {success: false, message: "Video not found."};
   }
   return {success: true, message: "Video deleted."};
-})
+});
 
+export default app;
 
-
-
-
-.listen(3000);
-
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-);
+if (import.meta.main) {
+  app.listen(3000);
+  console.log(
+    `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
+  );
+}
