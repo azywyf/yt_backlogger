@@ -11,4 +11,6 @@ db.run(`
   )
 `);
 
+db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_videos_url ON videos(url)");
+
 export default db;
