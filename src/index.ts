@@ -27,21 +27,32 @@ const app = new Elysia()
   "/videos/:id",
   ({ params, body }) => {
     const { id } = params;
-    const { watched } = body;
+    const { watched, notes } = body;
     db.query(
-      "UPDATE videos SET watched = ? WHERE id = ?"
+      `UPDATE videos
+       SET watched = COALESCE(?, watched),
+           notes   = COALESCE(?, notes)
+       WHERE id = ?`
     ).run(
-      watched ? 1 : 0,
+      watched === undefined ? null : watched ? 1 : 0,
+      notes ?? null,
       id
     );
     return {success: true, message: "Video updated."};
   },
   {
     body: t.Object({
-      watched: t.Boolean()
+      watched: t.Optional(t.Boolean()),
+      notes: t.Optional(t.String())
     })
   }
 )
+.post("/videos/:id/toggle", ({ params }) => {
+  db.query(
+    "UPDATE videos SET watched = 1 - watched WHERE id = ?"
+  ).run(params.id);
+  return {success: true, message: "Video toggled."};
+})
 .delete("/videos/:id", ({ params }) => {
   const { id } = params;
   db.query("DELETE FROM videos WHERE id = ?").run(id);
